@@ -16,19 +16,21 @@ export class SNSDemoStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
-    // Integration rsources 
+    // Integration rsources
 
     const demoTopic = new sns.Topic(this, "DemoTopic", {
       displayName: "Demo topic",
     });
-    
+
     const queue = new sqs.Queue(this, "all-msg-queue", {
       receiveMessageWaitTime: cdk.Duration.seconds(5),
     });
 
     const failuresQueue = new sqs.Queue(this, "img-created-queue", {
       receiveMessageWaitTime: cdk.Duration.seconds(5),
-    });  
+    });
+
+    // Lambda handlers
 
     const processSNSMessageFn = new lambdanode.NodejsFunction(
       this,
@@ -66,21 +68,24 @@ export class SNSDemoStack extends cdk.Stack {
 
     // Subscribers
 
-    demoTopic.addSubscription(new subs.LambdaSubscription(processSNSMessageFn,
-      {
-        filterPolicy: {
-          user_type: sns.SubscriptionFilter.stringFilter({
-              allowlist: ['Student']
-          }),
-        },
-        deadLetterQueue: failuresQueue  // Not working, yet.
-      }));
+    demoTopic.addSubscription(
+      new subs.LambdaSubscription(processSNSMessageFn, {
+        //   filterPolicy: {
+        //     user_type: sns.SubscriptionFilter.stringFilter({
+        //         allowlist: ['Student']
+        //     }),
+        //   },
+        //   deadLetterQueue: failuresQueue  // Not working, yet.
+      })
+    );
 
-    demoTopic.addSubscription(new subs.SqsSubscription(queue, {
-      rawMessageDelivery: true,
-    }));
+    demoTopic.addSubscription(
+      new subs.SqsSubscription(queue, {
+        rawMessageDelivery: true,
+      })
+    );
 
-    // Event Sources 
+    // Event Sources
 
     processSQSMessageFn.addEventSource(
       new SqsEventSource(queue, {
@@ -96,11 +101,10 @@ export class SNSDemoStack extends cdk.Stack {
       })
     );
 
-    // Output 
+    // Output
 
     new cdk.CfnOutput(this, "topicARN", {
       value: demoTopic.topicArn,
     });
-
   }
 }
