@@ -70,18 +70,26 @@ export class SNSDemoStack extends cdk.Stack {
 
     demoTopic.addSubscription(
       new subs.LambdaSubscription(processSNSMessageFn, {
-        //   filterPolicy: {
-        //     user_type: sns.SubscriptionFilter.stringFilter({
-        //         allowlist: ['Student']
-        //     }),
-        //   },
-        //   deadLetterQueue: failuresQueue  // Not working, yet.
+          filterPolicy: {
+            user_type: sns.SubscriptionFilter.stringFilter({
+                allowlist: ['Student','Lecturer']
+            }),
+          },
+          deadLetterQueue: failuresQueue  // Not working, yet.
       })
     );
 
     demoTopic.addSubscription(
       new subs.SqsSubscription(queue, {
         rawMessageDelivery: true,
+        filterPolicy: {
+          user_type: sns.SubscriptionFilter.stringFilter({
+              denylist: ['Lecturer']  
+          }),
+          source: sns.SubscriptionFilter.stringFilter({
+            matchPrefixes: ['Moodle','Slack']  
+        }),
+        },
       })
     );
 
