@@ -4,7 +4,6 @@ import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as sqs from "aws-cdk-lib/aws-sqs";
 import * as sns from "aws-cdk-lib/aws-sns";
 import * as subs from "aws-cdk-lib/aws-sns-subscriptions";
-import * as iam from "aws-cdk-lib/aws-iam";
 import { SqsEventSource } from "aws-cdk-lib/aws-lambda-event-sources";
 import { Duration, RemovalPolicy } from "aws-cdk-lib";
 
@@ -26,10 +25,6 @@ export class SNSDemoStack extends cdk.Stack {
       receiveMessageWaitTime: cdk.Duration.seconds(5),
     });
 
-    const failuresQueue = new sqs.Queue(this, "img-created-queue", {
-      receiveMessageWaitTime: cdk.Duration.seconds(5),
-    });
-
     // Lambda handlers
 
     const processSNSMessageFn = new lambdanode.NodejsFunction(
@@ -40,7 +35,6 @@ export class SNSDemoStack extends cdk.Stack {
         memorySize: 128,
         timeout: cdk.Duration.seconds(3),
         entry: `${__dirname}/../lambdas/processSNSMsg.ts`,
-        onFailure: new SqsDestination(failuresQueue),
       }
     );
 
@@ -55,41 +49,29 @@ export class SNSDemoStack extends cdk.Stack {
       }
     );
 
-    const processFailuresFn = new lambdanode.NodejsFunction(
-      this,
-      "processFailedMsgFn",
-      {
-        runtime: lambda.Runtime.NODEJS_16_X,
-        memorySize: 128,
-        timeout: cdk.Duration.seconds(3),
-        entry: `${__dirname}/../lambdas/processFailures.ts`,
-      }
-    );
-
     // Subscribers
 
     demoTopic.addSubscription(
       new subs.LambdaSubscription(processSNSMessageFn, {
-          filterPolicy: {
-            user_type: sns.SubscriptionFilter.stringFilter({
-                allowlist: ['Student','Lecturer']
-            }),
-          },
-          deadLetterQueue: failuresQueue  // Not working, yet.
+        filterPolicy: {
+          user_type: sns.SubscriptionFilter.stringFilter({
+            allowlist: ["Student", "Lecturer"],
+          }),
+        },
       })
     );
 
     demoTopic.addSubscription(
       new subs.SqsSubscription(queue, {
         rawMessageDelivery: true,
-        filterPolicy: {
-          user_type: sns.SubscriptionFilter.stringFilter({
-              denylist: ['Lecturer']  
-          }),
-          source: sns.SubscriptionFilter.stringFilter({
-            matchPrefixes: ['Moodle','Slack']  
-        }),
-        },
+        //   filterPolicy: {
+        //     user_type: sns.SubscriptionFilter.stringFilter({
+        //         denylist: ['Lecturer']
+        //     }),
+        //     source: sns.SubscriptionFilter.stringFilter({
+        //       matchPrefixes: ['Moodle','Slack']
+        //   }),
+        //   },
       })
     );
 
@@ -97,13 +79,6 @@ export class SNSDemoStack extends cdk.Stack {
 
     processSQSMessageFn.addEventSource(
       new SqsEventSource(queue, {
-        maxBatchingWindow: Duration.seconds(5),
-        maxConcurrency: 2,
-      })
-    );
-
-    processFailuresFn.addEventSource(
-      new SqsEventSource(failuresQueue, {
         maxBatchingWindow: Duration.seconds(5),
         maxConcurrency: 2,
       })
